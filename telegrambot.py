@@ -1,82 +1,59 @@
 import os
 import PyPDF2
-from telegram import ReplyKeyboardMarkup, ReplyKeyboardRemove
+from telegram import ReplyKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler
-from collections import defaultdict
 
 # States for conversation handler
-STATE1 = 1
-STATE2 = 2
+STATE_PURCHASE = 1
+STATE_SALES = 2
 
 def start(update, context):
-    reply_keyboard = [['Upload Purchase Bill'], ['Upload Sales Bill']]
     update.message.reply_text(
-        "Hello! Please choose an option.",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True)
+        "Hello! Please upload the purchase bill (PDF file)."
     )
 
-    return STATE1
+    return STATE_PURCHASE
 
 def process_purchase_bill(update, context):
+    # Check if the uploaded file is a PDF
+    if update.message.document.mime_type != 'application/pdf':
+        update.message.reply_text("Please upload a PDF file.")
+        return STATE_PURCHASE
+
     # Get the PDF file sent by the user
-    pdf_file = context.bot.get_file(update.message.document).download()
+    file_id = update.message.document.file_id
+    file = context.bot.get_file(file_id)
+    pdf_file = file.download()
 
-    with open(pdf_file, 'rb') as file:
-        pdf_reader = PyPDF2.PdfReader(file)
+    # Process the PDF file
+    # Rest of the code...
 
-        # Extract text from each page of the PDF
-        bill_text = ""
-        for page in pdf_reader.pages:
-            bill_text += page.extract_text()
+    # Prompt the user to upload the sales bill
+    update.message.reply_text("Purchase bill processed successfully! Please upload the sales bill (PDF file).")
 
-        # Perform calculations based on the extracted text
-        # Implement your logic to calculate profits and losses here
-
-        # Example calculation: Count the occurrences of each product name
-        product_count = defaultdict(int)
-        for word in bill_text.split():
-            # Assuming the product names are single words
-            product_count[word] += 1
-
-        # Example output: Print the product names and their occurrence count
-        for product, count in product_count.items():
-            update.message.reply_text(f"Product: {product}, Count: {count}")
-
-    update.message.reply_text("Purchase bill processed successfully! Please upload the sales bill.")
-
-    return STATE2
+    return STATE_SALES
 
 def process_sales_bill(update, context):
+    # Check if the uploaded file is a PDF
+    if update.message.document.mime_type != 'application/pdf':
+        update.message.reply_text("Please upload a PDF file.")
+        return STATE_SALES
+
     # Get the PDF file sent by the user
-    pdf_file = context.bot.get_file(update.message.document).download()
+    file_id = update.message.document.file_id
+    file = context.bot.get_file(file_id)
+    pdf_file = file.download()
 
-    with open(pdf_file, 'rb') as file:
-        pdf_reader = PyPDF2.PdfReader(file)
+    # Process the PDF file
+    # Rest of the code...
 
-        # Extract text from each page of the PDF
-        bill_text = ""
-        for page in pdf_reader.pages:
-            bill_text += page.extract_text()
+    # Prompt the user to upload the alternate bill
+    update.message.reply_text("Sales bill processed successfully! Please upload any overhead expenses (PDF file).")
 
-        # Perform calculations based on the extracted text
-        # Implement your logic to calculate profits and losses here
-
-        # Example calculation: Count the occurrences of each product name
-        product_count = defaultdict(int)
-        for word in bill_text.split():
-            # Assuming the product names are single words
-            product_count[word] += 1
-
-        # Example output: Print the product names and their occurrence count
-        for product, count in product_count.items():
-            update.message.reply_text(f"Product: {product}, Count: {count}")
-
-    update.message.reply_text("Sales bill processed successfully! Please upload the alternate bill.")
-
-    return STATE1
+    return STATE_PURCHASE
 
 def cancel(update, context):
-    update.message.reply_text("Cancelled.", reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text("Cancelled.")
 
     return ConversationHandler.END
 
@@ -92,13 +69,8 @@ def main():
     conversation_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
         states={
-            STATE1: [
-                MessageHandler(Filters.regex('^Upload Purchase Bill$'), process_purchase_bill),
-                MessageHandler(Filters.regex('^Upload Sales Bill$'), process_sales_bill)
-            ],
-            STATE2: [
-                MessageHandler(Filters.document & ~Filters.regex('^Upload Purchase Bill$'), process_sales_bill)
-            ]
+            STATE_PURCHASE: [MessageHandler(Filters.document, process_purchase_bill)],
+            STATE_SALES: [MessageHandler(Filters.document, process_sales_bill)],
         },
         fallbacks=[CommandHandler('cancel', cancel)]
     )
